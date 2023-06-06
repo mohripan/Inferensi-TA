@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Uploader</title>
+    <!-- Add Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center my-4">Upload your image</h1>
+        <div class="row">
+            <div class="col-md-6">
+                <form id="upload-form" action="/" method="post" enctype="multipart/form-data" class="mb-3">
+                    <!-- Add the dropdown menu inside the form element -->
+                    <div class="mb-3">
+                        <label for="model" class="form-label">Choose a model</label>
+                        <select class="form-select" name="model" id="model" required>
+                            <option value="">Select a model...</option>
+                            <option value="face_restoration">Face restoration</option>
+                            <option value="image_super_resolution">Image super-resolution</option>
+                            <option value="image_debluring">Image debluring</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="image" class="form-label">Choose an image</label>
+                        <input type="file" class="form-control" name="image" id="image" accept="image/*" required>
+                        <div id="crop-container">
+                            <img id="preview" src="#" alt="your image" style="max-width: 100%;"/>
+                        </div>
+                    </div>
+                    <input type="hidden" id="x" name="x" />
+                    <input type="hidden" id="y" name="y" />
+                    <input type="hidden" id="width" name="width" />
+                    <input type="hidden" id="height" name="height" />
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </form>
+            </div>
+            {% if output_urls %}
+            <div class="col-md-6">
+                <h2>Input:</h2>
+                <div class="row">
+                    <div class="col-12 mb-3">
+                        <img src="{{ input_image_url }}" alt="Input image" class="img-thumbnail">
+                    </div>
+                </div>
+                <h2>Output:</h2>
+                <div class="row">
+                    {% for url in output_urls %}
+                    <div class="col-12 mb-3">
+                        <img src="{{ url }}" alt="Output image" class="img-thumbnail">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add Bootstrap JavaScript and its dependencies -->
+    <script src="https://code.jquery.com/jquery-3.6.0.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+    <script>
+        $(document).ready(function(){
+            var $preview = $('#preview');
+            var cropper = null;
+            var options = {
+                aspectRatio: 1,
+                viewMode: 1,
+                preview: '.preview',
+                crop: function(event) {
+                    $('#x').val(event.detail.x);
+                    $('#y').val(event.detail.y);
+                    $('#width').val(event.detail.width);
+                    $('#height').val(event.detail.height);
+                }
+            };
+    
+            $('#image').change(function(){
+                var reader = new FileReader();
+    
+                reader.onload = function(event){
+                    if(cropper !== null) {
+                        cropper.destroy();
+                    }
+                    $preview.attr('src', event.target.result);
+                    cropper = new Cropper($preview[0], options);
+                }
+    
+                reader.readAsDataURL(this.files[0]);
+            });
+    
+            $('#upload-form').submit(function(){
+                if(cropper !== null) {
+                    var canvas = cropper.getCroppedCanvas();
+                    var dataUrl = canvas.toDataURL('image/jpeg');
+                    var blob = dataURItoBlob(dataUrl);
+                    var file = new File([blob], 'cropped.jpg', {type: 'image/jpeg', lastModified: Date.now()});
+                    var formData = new FormData();
+                    formData.append('image', file);
+                    formData.append('model', $('#model').val());
+                    formData.append('x', $('#x').val());
+                    formData.append('y', $('#y').val());
+                    formData.append('width', $('#width').val());
+                    formData.append('height', $('#height').val());
+                    $.ajax({
+                        url: '/',
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            // handle success
+                        },
+                        error: function(response) {
+                            // handle error
+                        }
+                    });
+                }
+                return false;
+            });
+        });
+    
+        function dataURItoBlob(dataURI) {
+            var byteString = atob(dataURI.split(',')[1]);
+            var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            var ab = new ArrayBuffer(byteString.length);
+            var ia = new Uint8Array(ab);
+            for (var i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            return new Blob([ab], {type: mimeString});
+        }
+    </script>
+
+</body>
+</html>
